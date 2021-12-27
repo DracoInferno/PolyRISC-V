@@ -26,7 +26,7 @@ RISCV_st* RISCV_init(RISCV_init_op_st *options)
 	if(options->set_to_0){
 		memset(cpu->mem, 0, cpu->mem_size);
 	}
-	cpu->stack_start = options->stack_size - 1;
+	cpu->stack_top = cpu->mem_size - 1;
 
 	return cpu;
 }
@@ -40,24 +40,30 @@ void RISCV_deinit(RISCV_st *cpu)
 	free(cpu);
 }
 
-void RISCV_reset(RISCV_st *cpu, word_kt *instr_list, size_t list_size 
+void RISCV_reset(RISCV_st *cpu, int8_t *elf, size_t elf_size 
 				RISCV_rst_op_st *options)
 {
 	assert(cpu);
-	assert(instr_list);
-	assert(list_size > 0);
+	assert(elf);
+	assert(elf_size > 0);
+	assert(elf_size < cpu->mem_size);
 
 	// Set registers to 0
 	memset(cpu->reg, 0, sizeof(cpu->reg));
 
 	// Set stack pointer register
-	cpu->SP = cpu->stack_start;
+	cpu->reg[SP] = cpu->stack_top;
+	
+	// Set stack lower boundary
+	cpu->stack_bot = elf_size;
 
+	// Copy program to memory
+	memcpy(cpu->mem, elf, elf_size);
 }
 
 void RISCV_step(RISCV_st *cpu)
 {
-	word_kt instr = 0;
+	uint32_t instr = 0;
 	uint8_t opcode = 0;
 	uint8_t funct3 = 0;
 	uint8_t funct7 = 0;
@@ -78,12 +84,10 @@ void RISCV_step(RISCV_st *cpu)
 	// Go for switch case because opcodes aren't continuous
 	switch(opcode){
 		case OP_LUI:{
-			assert(0 && "OP_LUI Not implemented");
 			RISCV_instr_lui(cpu, instr);
 		}break;
 
 		case OP_AUIPC:{
-			assert(0 && "OP_AUIPC Not implemented");
 			RISCV_instr_auipc(cpu, instr);
 		}break;
 
@@ -100,32 +104,26 @@ void RISCV_step(RISCV_st *cpu)
 			switch(funct3){
 				case F3_BRANCH_BEQ:{
 					RISCV_instr_beq(cpu, instr);
-					assert(0 && "BEQ Not implemented");
 				}break;
 
 				case F3_BRANCH_BNE:{
 					RISCV_instr_bne(cpu, instr);
-					assert(0 && "BNE Not implemented");
 				}break;
 
 				case F3_BRANCH_BLT:{
 					RISCV_instr_blt(cpu, instr);
-					assert(0 && "BLT Not implemented");
 				}break;
 
 				case F3_BRANCH_BGE:{
 					RISCV_instr_bge(cpu, instr);
-					assert(0 && "BGE Not implemented");
 				}break;
 
 				case F3_BRANCH_BLTU:{
 					RISCV_instr_bltu(cpu, instr);
-					assert(0 && "BLTU Not implemented");
 				}break;
 
 				case F3_BRANCH_BGEU:{
 					RISCV_instr_bgeu(cpu, instr);
-					assert(0 && "BGEU Not implemented");
 				}break;
 
 				default:{
@@ -143,27 +141,21 @@ void RISCV_step(RISCV_st *cpu)
 			switch(funct3){
 				case F3_LOAD_LB:{
 					RISCV_instr_lb(cpu, instr);
-					assert(0 && "LB Not implemented");
 				}break;
 
 				case F3_LOAD_LH:{
 					RISCV_instr_lh(cpu, instr);
-					assert(0 && "LH Not implemented");
-				}break;
 
 				case F3_LOAD_LW:{
 					RISCV_instr_lw(cpu, instr);
-					assert(0 && "LW Not implemented");
 				}break;
 
 				case F3_LOAD_LBU:{
 					RISCV_instr_lbu(cpu, instr);
-					assert(0 && "LBU Not implemented");
 				}break;
 
 				case F3_LOAD_LHU:{
 					RISCV_instr_lhu(cpu, instr);
-					assert(0 && "LHU Not implemented");
 				}break;
 
 				default:{
@@ -181,17 +173,14 @@ void RISCV_step(RISCV_st *cpu)
 			switch(funct3){
 				case F3_STORE_SB:{
 					RISCV_instr_sb(cpu, instr);
-					assert(0 && "SB Not implemented");
 				}break;
 
 				case F3_STORE_SH:{
 					RISCV_instr_sh(cpu, instr);
-					assert(0 && "SH Not implemented");
 				}break;
 
 				case F3_STORE_SW:{
 					RISCV_instr_sw(cpu, instr);
-					assert(0 && "SW Not implemented");
 				}break;
 
 				default:{
@@ -213,12 +202,10 @@ void RISCV_step(RISCV_st *cpu)
 
 				case F3_OP_IMM_SLTI:{
 					RISCV_instr_slti(cpu, instr);
-					assert(0 && "SLTI Not implemented");
 				}break;
 
 				case F3_OP_IMM_SLTIU:{
 					RISCV_instr_sltiu(cpu, instr);
-					assert(0 && "SLTIU Not implemented");
 				}break;
 
 				case F3_OP_IMM_XORI:{
@@ -268,19 +255,16 @@ void RISCV_step(RISCV_st *cpu)
 
 		case OP_OP:{
 			funct3 = instr_decode_funct3(instr);
-			assert(0 && "OP_OP Not implemented");
 			switch(funct3){
 				case F3_OP_AS:{
 					funct7 = instr_decode_funct7(instr);
 					switch(funct7){
 						case F7_OP_AS_ADD:{
 							RISCV_instr_add(cpu, instr);
-							assert(0 && "ADD Not implemented");
 						}break;
 
 						case F7_OP_AS_SUB:{
 							RISCV_instr_sub(cpu, instr);
-							assert(0 && "SUB Not implemented");
 						}break;
 
 						default:{
@@ -295,22 +279,18 @@ void RISCV_step(RISCV_st *cpu)
 
 				case F3_OP_SLL:{
 					RISCV_instr_sll(cpu, instr);
-					assert(0 && "SLL Not implemented");
 				}break;
 
 				case F3_OP_SLT:{
 					RISCV_instr_slt(cpu, instr);
-					assert(0 && "SLT Not implemented");
 				}break;
 
 				case F3_OP_SLTU:{
 					RISCV_instr_sltu(cpu, instr);
-					assert(0 && "SLTU Not implemented");
 				}break;
 
 				case F3_OP_XOR:{
 					RISCV_instr_xor(cpu, instr);
-					assert(0 && "XOR Not implemented");
 				}break;
 
 				case F3_OP_SRLA:{
@@ -318,12 +298,10 @@ void RISCV_step(RISCV_st *cpu)
 					switch(funct7){
 						case F7_OP_SRLA_SRL:{
 							RISCV_instr_srl(cpu, instr);
-							assert(0 && "SRL Not implemented");
 						}break;
 
 						case F7_OP_SRLA_SRA:{
 							RISCV_instr_sra(cpu, instr);
-							assert(0 && "SRA Not implemented");
 						}break;
 
 						default:{
@@ -338,12 +316,10 @@ void RISCV_step(RISCV_st *cpu)
 
 				case F3_OP_OR:{
 					RISCV_instr_or(cpu, instr);
-					assert(0 && "OR Not implemented");
 				}break;
 
 				case F3_OP_AND:{
 					RISCV_instr_and(cpu, instr);
-					assert(0 && "SLL Not implemented");
 				}break;
 
 				default:{
@@ -358,7 +334,6 @@ void RISCV_step(RISCV_st *cpu)
 
 		case OP_MISC_MEM:{
 			funct3 = instr_decode_funct3(instr);
-			assert(0 && "FENCE Not implemented");
 			switch(funct3){
 				case F3_MISC_MEM_FENCE:{
 					assert(0 && "FENCE Not implemented");
@@ -381,13 +356,13 @@ void RISCV_step(RISCV_st *cpu)
 					funct12 = instr_decode_funct12(instr);
 					switch(funct12){
 						case F12_SYSTEM_PRIV_ECALL:{
-							RISCV_instr_ecall(cpu, instr);
 							assert(0 && "ECALL Not implemented");
+							RISCV_instr_ecall(cpu, instr);
 						}break;
 
 						case F12_SYSTEM_PRIV_EBREAK:{
-							RISCV_instr_ebreak(cpu, instr);
 							assert(0 && "EBREAK Not implemented");
+							RISCV_instr_ebreak(cpu, instr);
 						}break;
 
 						default:{
@@ -422,28 +397,28 @@ void RISCV_step(RISCV_st *cpu)
 
 // Decoding instructions
 //	Opcodes
-static uint8_t instr_decode_opcode(uword_kt instr)
+static uint8_t instr_decode_opcode(const uint32_t instr)
 {
 	// bits n°0 to 6
 	// ... x111 1111
 	return instr & 0x7F;
 }
 
-static uint8_t instr_decode_funct3(uword_kt instr)
+static uint8_t instr_decode_funct3(const uint32_t instr)
 {
 	// bits n°12 to 14
 	// ... x111 xxxx xxxx xxxx
 	return (instr >> 12) & 0x7;
 }
 
-static uint8_t instr_decode_funct7(uword_kt instr)
+static uint8_t instr_decode_funct7(const uint32_t instr)
 {
 	// bits n°25 to 31
 	// 1111 111x xxxx xxxx xxxx xxxx xxxx xxxx
 	return instr >> 25;
 }
 
-static uint8_t instr_decode_funct12(uword_kt instr)
+static uint8_t instr_decode_funct12(const uint32_t instr)
 {
 	// bits n°20 to 31
 	// 1111 1111 1111 xxxx xxxx xxxx xxxx xxxx
@@ -451,28 +426,28 @@ static uint8_t instr_decode_funct12(uword_kt instr)
 }
 
 //	Arguments fields
-static uint8_t instr_decode_rd(uword_kt instr)
+static uint8_t instr_decode_rd(const uint32_t instr)
 {
 	// bits n°7 to 11
 	// ... 1111 1xxx xxxx
 	return (instr >> 7) & 0x1F;
 }
 
-static uint8_t instr_decode_rs1(uword_kt instr)
+static uint8_t instr_decode_rs1(const uint32_t instr)
 {
 	// bits n°15 to 19
 	// ... 1111 1xxx xxxx xxxx xxxx
 	return (instr >> 15) & 0x1F;
 }
 
-static uint8_t instr_decode_rs2(uword_kt instr)
+static uint8_t instr_decode_rs2(const uint32_t instr)
 {
 	// bits n°20 to 24
 	// ... xxx1 1111 xxxx xxxx xxxx xxxx xxxx
 	return (instr >> 20) & 0x1F;
 }
 
-static int16_t instr_decode_imm_11_0(uword_kt instr)
+static int16_t instr_decode_imm_11_0(const uint32_t instr)
 {
 	// 12 bits signed integer
 	// bits n°20 to 31
@@ -482,7 +457,7 @@ static int16_t instr_decode_imm_11_0(uword_kt instr)
 	return (int16_t)((imm & 0x800)? (imm | 0xF000) : imm);
 }
 
-static uint16_t instr_decode_imm_11_0_u(uword_kt instr)
+static uint16_t instr_decode_imm_11_0_u(const uint32_t instr)
 {
 	// 12 bits signed integer
 	// bits n°20 to 31
@@ -490,12 +465,12 @@ static uint16_t instr_decode_imm_11_0_u(uword_kt instr)
 	return instr >> 20;
 }
 
-static int32_t instr_decode_imm_31_12(uword_kt instr)
+static int32_t instr_decode_imm_31_12(const uint32_t instr)
 {
 	return (int32_t)(instr & 0xFFFFF000);
 }
 
-static int32_t instr_decode_imm_jal(uword_kt instr)
+static int32_t instr_decode_imm_jal(const uint32_t instr)
 {
 	// 20 bits signed integer
 	// bits n°12 to 31
@@ -521,7 +496,7 @@ static int32_t instr_decode_imm_jal(uword_kt instr)
 	return (int32_t)((imm & 0x100000)? (imm | 0xFFF00000) : imm);
 }
 
-static int16_t instr_decode_imm_branch(uword_kt instr)
+static int16_t instr_decode_imm_branch(const uint32_t instr)
 {
 	// 12 bits signed integer
 	// bits n°7 to 11 & 25 to 31
@@ -547,7 +522,7 @@ static int16_t instr_decode_imm_branch(uword_kt instr)
 	return (int16_t)((imm & 0x100000)? (imm | 0xF000) : imm);
 }
 
-static int16_t instr_decode_imm_store(uword_kt instr)
+static int16_t instr_decode_imm_store(const uint32_t instr)
 {
 	// 12 bits signed integer
 	// bits n°7 to 11 & 25 to 31
@@ -566,89 +541,92 @@ static int16_t instr_decode_imm_store(uword_kt instr)
 }
 
 // Instructions implementation
-static void RISCV_instr_addi(RISCV_st *cpu, word_kt instr)
+static void RISCV_instr_addi(RISCV_st *cpu, uint32_t instr)
 {
 	cpu->reg[instr_decode_rd(instr)] = cpu->reg[instr_decode_rs1(instr)] + instr_decode_imm_11_0(instr);
 }
 
-static void RISCV_instr_lui(RISCV_st *cpu, word_kt instr)
+static void RISCV_instr_lui(RISCV_st *cpu, uint32_t instr)
 {
 	cpu->reg[instr_decode_rd(instr)] = instr_decode_imm_31_12(instr);
 }
 
-static void RISCV_instr_auipc(RISCV_st *cpu, word_kt instr)
+static void RISCV_instr_auipc(RISCV_st *cpu, uint32_t instr)
 {
 	// TODO: check this not sure, sould it be cpu->pc += imm ?
 	cpu->reg[instr_decode_rd(instr)] = cpu->pc + instr_decode_imm_31_12(instr);
 }
-static void RISCV_instr_jal(RISCV_st *cpu, word_kt instr)
+static void RISCV_instr_jal(RISCV_st *cpu, uint32_t instr)
 {
 	cpu->reg[instr_decode_rd(instr)] = cpu->pc + 4;
 	cpu->pc += instr_decode_imm_jal(instr);
 }
 
-static void RISCV_instr_jalr(RISCV_st *cpu, word_kt instr)
+static void RISCV_instr_jalr(RISCV_st *cpu, uint32_t instr)
 {
 	cpu->reg[instr_decode_rd(instr)] = cpu->pc + 4;
 	cpu->pc = (cpu->reg[instr_decode_rs1(instr)] + instr_decode_imm_11_0(instr)) & ~0x1;
 }
 
-static void RISCV_instr_beq(RISCV_st *cpu, word_kt instr)
+static void RISCV_instr_beq(RISCV_st *cpu, uint32_t instr)
 {
 	if(instr_decode_rs1(instr) == instr_decode_rs2(instr))
 		cpu->pc += instr_decode_imm_branch(instr);
 }
 
-static void RISCV_instr_bne(RISCV_st *cpu, word_kt instr)
+static void RISCV_instr_bne(RISCV_st *cpu, uint32_t instr)
 {
 	if(instr_decode_rs1(instr) != instr_decode_rs2(instr))
 		cpu->pc += instr_decode_imm_branch(instr);
 }
 
-static void RISCV_instr_blt(RISCV_st *cpu, word_kt instr)
+static void RISCV_instr_blt(RISCV_st *cpu, uint32_t instr)
 {
 	if(instr_decode_rs1(instr) < instr_decode_rs2(instr))
 		cpu->pc += instr_decode_imm_branch(instr);
 }
 
-static void RISCV_instr_bge(RISCV_st *cpu, word_kt instr)
+static void RISCV_instr_bge(RISCV_st *cpu, uint32_t instr)
 {
 	if(instr_decode_rs1(instr) >= instr_decode_rs2(instr))
 		cpu->pc += instr_decode_imm_branch(instr);
 }
 
-static void RISCV_instr_bltu(RISCV_st *cpu, word_kt instr)
+static void RISCV_instr_bltu(RISCV_st *cpu, uint32_t instr)
 {
-	if((uword_kt)instr_decode_rs1(instr) < (uword_kt)instr_decode_rs2(instr))
+	if((uint32_t)instr_decode_rs1(instr) < (uint32_t)instr_decode_rs2(instr))
 		cpu->pc += instr_decode_imm_branch(instr);
 }
 
-static void RISCV_instr_bgeu(RISCV_st *cpu, word_kt instr)
+static void RISCV_instr_bgeu(RISCV_st *cpu, uint32_t instr)
 {
-	if((uword_kt)instr_decode_rs1(instr) >= (uword_kt)instr_decode_rs2(instr))
+	if((uint32_t)instr_decode_rs1(instr) >= (uint32_t)instr_decode_rs2(instr))
 		cpu->pc += instr_decode_imm_branch(instr);
 }
 
-static void RISCV_instr_lb(RISCV_st *cpu, word_kt instr)
+static void RISCV_instr_lb(RISCV_st *cpu, uint32_t instr)
 {
 	// TODO: exception if rd is zero register
-	// uword_kt value = (uword_kt)cpu->mem[instr_decode_rs1(instr) + instr_decode_imm_11_0(instr)];
+	// TODO: check addr > 0 ?
+	// uint32_t value = (uint32_t)cpu->mem[instr_decode_rs1(instr) + instr_decode_imm_11_0(instr)];
 	// Check sign bit (n°7). If 1, set all leftmost bits to 1.
 	// cpu->reg[instr_decode_rd(instr)] = ((value & 0x80)? (value | 0xFFFFFF80) : value); 
 	cpu->reg[instr_decode_rd(instr)] = 
 		(int8_t)cpu->mem[cpu->reg[instr_decode_rs1(instr)] + instr_decode_imm_11_0(instr)];
 }
-static void RISCV_instr_lh(RISCV_st *cpu, word_kt instr)
+static void RISCV_instr_lh(RISCV_st *cpu, uint32_t instr)
 {
 	// TODO: exception if rd is zero register
-	word_kt addr = cpu->reg[instr_decode_rs1(instr)] + instr_decode_imm_11_0(instr);
+	// TODO: check addr > 0 ?
+	int32_t addr = cpu->reg[instr_decode_rs1(instr)] + instr_decode_imm_11_0(instr);
 	cpu->reg[instr_decode_rd(instr)] = 
 		(int16_t)((uint16_t)cpu->mem[addr] | ((uint16_t)cpu->mem[addr + 1] << 8));
 }
-static void RISCV_instr_lw(RISCV_st *cpu, word_kt instr)
+static void RISCV_instr_lw(RISCV_st *cpu, uint32_t instr)
 {
 	// TODO: exception if rd is zero register
-	word_kt addr = cpu->reg[instr_decode_rs1(instr)] + instr_decode_imm_11_0(instr);
+	// TODO: check addr > 0 ?
+	int32_t addr = cpu->reg[instr_decode_rs1(instr)] + instr_decode_imm_11_0(instr);
 	cpu->reg[instr_decode_rd(instr)] = 
 		(uint32_t)cpu->mem[addr] | 
 		((uint32_t)cpu->mem[addr + 1] << 8) |
@@ -656,124 +634,161 @@ static void RISCV_instr_lw(RISCV_st *cpu, word_kt instr)
 		((uint32_t)cpu->mem[addr + 3] << 24);
 }
 
-static void RISCV_instr_lbu(RISCV_st *cpu, word_kt instr)
+static void RISCV_instr_lbu(RISCV_st *cpu, uint32_t instr)
 {
 	// TODO: exception if rd is zero register
+	// TODO: check addr > 0 ?
 	cpu->reg[instr_decode_rd(instr)] = 
 		cpu->mem[cpu->reg[instr_decode_rs1(instr)] + instr_decode_imm_11_0(instr)];
 }
 
-static void RISCV_instr_lhu(RISCV_st *cpu, word_kt instr)
+static void RISCV_instr_lhu(RISCV_st *cpu, uint32_t instr)
 {
 	// TODO: exception if rd is zero register
-	word_kt addr = cpu->reg[instr_decode_rs1(instr)] + instr_decode_imm_11_0(instr);
+	// TODO: check addr > 0 ?
+	int32_t addr = cpu->reg[instr_decode_rs1(instr)] + instr_decode_imm_11_0(instr);
 	cpu->reg[instr_decode_rd(instr)] = 
 		((uint16_t)cpu->mem[addr] | ((uint16_t)cpu->mem[addr + 1] << 8));
 }
 
-static void RISCV_instr_sb(RISCV_st *cpu, word_kt instr)
+static void RISCV_instr_sb(RISCV_st *cpu, uint32_t instr)
 {
-	cpu->mem[cpu->reg[instr_decode_rs1(instr)] + instr_decode_imm_store(instr)] = cpu->reg[instr_decode_rs2(instr)]
-
+	// TODO: check addr > 0 ?
+	cpu->mem[cpu->reg[instr_decode_rs1(instr)] + instr_decode_imm_store(instr)] = cpu->reg[instr_decode_rs2(instr)];
 }
 
-static void RISCV_instr_sh(RISCV_st *cpu, word_kt instr);
-static void RISCV_instr_sw(RISCV_st *cpu, word_kt instr);
-static void RISCV_instr_addi(RISCV_st *cpu, word_kt instr)
+static void RISCV_instr_sh(RISCV_st *cpu, uint32_t instr)
+{
+	// TODO: check addr > 0 ?
+	int32_t addr = cpu->reg[instr_decode_rs1(instr)] + instr_decode_imm_store(instr);
+	uint16_t value = cpu->reg[instr_decode_rs2(instr)];
+	cpu->mem[addr] = value;
+	cpu->mem[addr + 1] = value >> 8;
+}
+
+static void RISCV_instr_sw(RISCV_st *cpu, uint32_t instr)
+{
+	// TODO: check addr > 0 ?
+	int32_t addr = cpu->reg[instr_decode_rs1(instr)] + instr_decode_imm_store(instr);
+	uint32_t value = cpu->reg[instr_decode_rs2(instr)];
+	cpu->mem[addr] = value;
+	cpu->mem[addr + 1] = value >> 8;
+	cpu->mem[addr + 2] = value >> 16;
+	cpu->mem[addr + 3] = value >> 24;
+}
+
+static void RISCV_instr_addi(RISCV_st *cpu, uint32_t instr)
 {
 	cpu->reg[instr_decode_rd(instr)] = cpu->reg[instr_decode_rs1(instr)] + instr_decode_imm_11_0(instr);
 }
 
-static void RISCV_instr_slti(RISCV_st *cpu, word_kt instr)
+static void RISCV_instr_slti(RISCV_st *cpu, uint32_t instr)
 {
 	cpu->reg[instr_decode_rd(instr)] = cpu->reg[instr_decode_rs1(instr)] < instr_decode_imm_11_0(instr);
 }
 
-static void RISCV_instr_sltiu(RISCV_st *cpu, word_kt instr)
+static void RISCV_instr_sltiu(RISCV_st *cpu, uint32_t instr)
 {
 	cpu->reg[instr_decode_rd(instr)] = cpu->reg[instr_decode_rs1(instr)] < instr_decode_imm_11_0_u(instr);
 }
 
-static void RISCV_instr_xori(RISCV_st *cpu, word_kt instr)
+static void RISCV_instr_xori(RISCV_st *cpu, uint32_t instr)
 {
 	// TODO: check this
 	cpu->reg[instr_decode_rd(instr)] = cpu->reg[instr_decode_rs1(instr)] ^ instr_decode_imm_11_0(instr);
 }
 
-static void RISCV_instr_ori(RISCV_st *cpu, word_kt instr)
+static void RISCV_instr_ori(RISCV_st *cpu, uint32_t instr)
 {
 	// TODO: check this
 	cpu->reg[instr_decode_rd(instr)] = cpu->reg[instr_decode_rs1(instr)] | instr_decode_imm_11_0(instr);
 }
 
-static void RISCV_instr_andi(RISCV_st *cpu, word_kt instr)
+static void RISCV_instr_andi(RISCV_st *cpu, uint32_t instr)
 {
 	// TODO: check this
 	cpu->reg[instr_decode_rd(instr)] = cpu->reg[instr_decode_rs1(instr)] & instr_decode_imm_11_0(instr);
 }
 
-static void RISCV_instr_slli(RISCV_st *cpu, word_kt instr);
-static void RISCV_instr_srli(RISCV_st *cpu, word_kt instr);
-static void RISCV_instr_srai(RISCV_st *cpu, word_kt instr);
-static void RISCV_instr_add(RISCV_st *cpu, word_kt instr)
+static void RISCV_instr_slli(RISCV_st *cpu, uint32_t instr)
+{
+	// TODO: check this
+	cpu->reg[instr_decode_rd(instr)] = (uint32_t)cpu->reg[instr_decode_rs1(instr)] << instr_decode_imm_rs2(instr);
+}
+
+static void RISCV_instr_srli(RISCV_st *cpu, uint32_t instr)
+{
+	// TODO: check this
+	cpu->reg[instr_decode_rd(instr)] = (uint32_t)cpu->reg[instr_decode_rs1(instr)] >> instr_decode_imm_rs2(instr);
+}
+
+static void RISCV_instr_srai(RISCV_st *cpu, uint32_t instr)
+{
+	// TODO: check this
+	int32_t vrs1 = cpu->reg[instr_decode_rs1(instr)];
+	uint32_t shamt = instr_decode_rs2(instr); // 5 last bits
+	cpu->reg[instr_decode_rd(instr)] = (vrs1 < 0)? ~(~vrs1 >> shamt) : vrs1 >> shamt;
+}
+
+static void RISCV_instr_add(RISCV_st *cpu, uint32_t instr)
 {
 	cpu->reg[instr_decode_rd(instr)] = cpu->reg[instr_decode_rs1(instr)] + cpu->reg[instr_decode_rs2(instr)];
 }
 
-static void RISCV_instr_sub(RISCV_st *cpu, word_kt instr)
+static void RISCV_instr_sub(RISCV_st *cpu, uint32_t instr)
 {
 	cpu->reg[instr_decode_rd(instr)] = cpu->reg[instr_decode_rs1(instr)] - cpu->reg[instr_decode_rs2(instr)];
 }
 
-static void RISCV_instr_sll(RISCV_st *cpu, word_kt instr)
+static void RISCV_instr_sll(RISCV_st *cpu, uint32_t instr)
 {
 	cpu->reg[instr_decode_rd(instr)] =
-		(uword_kt)cpu->reg[instr_decode_rs1(instr)] <<
-		(uword_kt)(cpu->reg[instr_decode_rs2(instr)] & 0x1F); // 5 last bits
+		(uint32_t)cpu->reg[instr_decode_rs1(instr)] <<
+		(uint32_t)(cpu->reg[instr_decode_rs2(instr)] & 0x1F); // 5 last bits
 }
 
-static void RISCV_instr_slt(RISCV_st *cpu, word_kt instr)
+static void RISCV_instr_slt(RISCV_st *cpu, uint32_t instr)
 {
 	cpu->reg[instr_decode_rd(instr)] = cpu->reg[instr_decode_rs1(instr)] < cpu->reg[instr_decode_rs2(instr)];
 }
 
-static void RISCV_instr_sltu(RISCV_st *cpu, word_kt instr)
+static void RISCV_instr_sltu(RISCV_st *cpu, uint32_t instr)
 {
 	cpu->reg[instr_decode_rd(instr)] =
-		(uword_kt)cpu->reg[instr_decode_rs1(instr)] <
-		(uword_kt)cpu->reg[instr_decode_rs2(instr)];
+		(uint32_t)cpu->reg[instr_decode_rs1(instr)] <
+		(uint32_t)cpu->reg[instr_decode_rs2(instr)];
 }
-static void RISCV_instr_xor(RISCV_st *cpu, word_kt instr)
+static void RISCV_instr_xor(RISCV_st *cpu, uint32_t instr)
 {
 	cpu->reg[instr_decode_rd(instr)] = cpu->reg[instr_decode_rs1(instr)] ^ cpu->reg[instr_decode_rs2(instr)];
 }
 
-static void RISCV_instr_srl(RISCV_st *cpu, word_kt instr)
+static void RISCV_instr_srl(RISCV_st *cpu, uint32_t instr)
 {
 	cpu->reg[instr_decode_rd(instr)] =
-		(uword_kt)cpu->reg[instr_decode_rs1(instr)] >> 
-		(uword_kt)(cpu->reg[instr_decode_rs2(instr)] & 0x1F); // 5 last bits
+		(uint32_t)cpu->reg[instr_decode_rs1(instr)] >> 
+		(uint32_t)(cpu->reg[instr_decode_rs2(instr)] & 0x1F); // 5 last bits
 }
 
-static void RISCV_instr_sra(RISCV_st *cpu, word_kt instr)
+static void RISCV_instr_sra(RISCV_st *cpu, uint32_t instr)
 {
 	uint8_t rd = instr_decode_rd(instr);
-	word_kt vrs1 = cpu->reg[instr_decode_rs1(instr)];
-	uword_kt vrs2 = cpu->reg[instr_decode_rs2(instr)] & 0x1F; // 5 last bits
+	int32_t vrs1 = cpu->reg[instr_decode_rs1(instr)];
+	uint32_t vrs2 = cpu->reg[instr_decode_rs2(instr)] & 0x1F; // 5 last bits
 
 	cpu->reg[rd] = (vrs1 < 0)? ~(~vrs1 >> vrs2) : vrs1 >> vrs2;
 }
 
-static void RISCV_instr_or(RISCV_st *cpu, word_kt instr)
+static void RISCV_instr_or(RISCV_st *cpu, uint32_t instr)
 {
 	cpu->reg[instr_decode_rd(instr)] = cpu->reg[instr_decode_rs1(instr)] | cpu->reg[instr_decode_rs2(instr)];
 }
 
-static void RISCV_instr_and(RISCV_st *cpu, word_kt instr)
+static void RISCV_instr_and(RISCV_st *cpu, uint32_t instr)
 {
 	cpu->reg[instr_decode_rd(instr)] = cpu->reg[instr_decode_rs1(instr)] & cpu->reg[instr_decode_rs2(instr)];
 }
 
-static void RISCV_instr_fence(RISCV_st *cpu, word_kt instr);
-static void RISCV_instr_ecall(RISCV_st *cpu, word_kt instr);
-static void RISCV_instr_ebreak(RISCV_st *cpu, word_kt instr);
+static void RISCV_instr_fence(RISCV_st *cpu, uint32_t instr);
+static void RISCV_instr_ecall(RISCV_st *cpu, uint32_t instr);
+static void RISCV_instr_ebreak(RISCV_st *cpu, uint32_t instr);
