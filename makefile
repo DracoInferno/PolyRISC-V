@@ -28,7 +28,7 @@ BINDIR= bin
 LIBDIR= lib
 
 WARNINGS= -W -Wall -Wextra -Wpedantic -Wdouble-promotion -Wstrict-prototypes -Wshadow
-CFLAGS= $(WARNINGS) -std=c99 -MMD -MP -march=native
+CFLAGS= $(WARNINGS) -std=c11 -MMD -MP -march=native
 LDFLAGS= #-L ./$(LIBDIR) -Wl,-rpath='$$ORIGIN' #rpath tells where to find .so files to the binaru output
 LIBFLAGS= 
 INCFLAGS= -I ./$(INCDIR)
