@@ -1,25 +1,9 @@
-#CC=gcc
-#WARNINGS= -W -Wall -Wextra -Wpedantic -Wdouble-promotion -Wstrict-prototypes -Wshadow
-#CFLAGS= $(WARNINGS) -std=c11
-#
-#SRCDIR= ./src
-#SRC= PolyRISC-V.c main.c
-#INCDIR= ./include
-#
-#all: 
-#
-#riscv: $(INCDIR)/$(SRC)
-#	$(CC) -o $@ $^ $(CFLAGS) -I $(INCDIR)
-#
-#.PHONY: clean mrproper
-#
-#clean:
-#	@rm -rf *.o
-
 # Autopopulating makefile
 
 CC= gcc
-EXEC= riscv
+EXEC= riscvcpu
+ELF= elfriscv
+RAW= rawriscv
 
 SRCDIR= src
 OBJDIR= obj
@@ -33,18 +17,22 @@ LDFLAGS= #-L ./$(LIBDIR) -Wl,-rpath='$$ORIGIN' #rpath tells where to find .so fi
 LIBFLAGS= 
 INCFLAGS= -I ./$(INCDIR)
 
+ASFLAGS= -march=rv32i
+
 SRC= $(wildcard ./$(SRCDIR)/*.c)
 OBJ= $(subst $(SRCDIR),$(OBJDIR),$(SRC:.c=.o))
 OBJ_D= $(subst $(SRCDIR),$(OBJDIR),$(SRC:.c=_d.o))
 DEP= $(OBJ:.o=.d)
 
+############################### C ##################################
+
 # Standard Compile
-all: $(EXEC)
+all: $(BINDIR)/$(EXEC)
 	@echo "Standard Compile"
 
-$(EXEC): $(OBJ)
+$(BINDIR)/$(EXEC): $(OBJ)
 	@mkdir -p ./$(BINDIR)
-	$(CC) -o ./$(BINDIR)/$@ $(LDFLAGS) $^ $(LIBFLAGS)
+	$(CC) -o $@ $(LDFLAGS) $^ $(LIBFLAGS)
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.c
 	@mkdir -p ./$(OBJDIR)
@@ -54,13 +42,34 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.c
 debug: $(EXEC)_d
 	@echo "Debug Compile"
 
-$(EXEC)_d: $(OBJ_D)
+$(BINDIR)/$(EXEC)_d: $(OBJ_D)
 	@mkdir -p ./$(BINDIR)
-	@$(CC) -o ./$(BINDIR)/$@ $(LDFLAGS) $^ $(LIBFLAGS)
+	@$(CC) -o $@ $(LDFLAGS) $^ $(LIBFLAGS)
 
 $(OBJDIR)/%_d.o: $(SRCDIR)/%.c
 	@mkdir -p ./$(OBJDIR)
 	@$(CC) -o $@ -c $< $(CFLAGS) $(INCFLAGS) -g
+
+############################## ASM ##################################
+
+elf: $(BINDIR)/$(ELF)
+	@echo "Assembling riscv instructions"
+
+$(BINDIR)/$(ELF): $(SRCDIR)/main.s
+	riscv32-elf-as $(ASFLAGS) $^ -o $@
+
+elfdump: $(BINDIR)/$(ELF)
+	hexdump $^
+
+raw: $(BINDIR)/$(RAW)
+	@echo "Getting raw riscv instructions"
+
+$(BINDIR)/$(RAW): $(BINDIR)/$(ELF)
+	riscv32-elf-objcopy -O binary $^ $@
+
+rawdump: $(BINDIR)/$(RAW)
+	hexdump $^
+
 
 # Cleaning
 
@@ -72,7 +81,7 @@ clean:
 	@rm -rf ./$(OBJDIR)/*.d
 
 mrproper: clean
-	@echo "Removing binary."
+	@echo "Removing binaries."
 	@rm -rf ./$(BINDIR)/$(EXEC)
 	@rm -rf ./$(BINDIR)/$(EXEC)_d
 

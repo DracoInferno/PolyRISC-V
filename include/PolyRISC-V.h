@@ -153,6 +153,7 @@ void RISCV_reset(RISCV_st *cpu, uint8_t *elf, size_t elf_size,
 void RISCV_step(RISCV_st *cpu);
 
 void RISCV_print_reg(RISCV_st *cpu);
+void RISCV_print_mem(RISCV_st *cpu, size_t start, size_t size);
 
 uint32_t RISCV_fetch_instr(RISCV_st *cpu);
 

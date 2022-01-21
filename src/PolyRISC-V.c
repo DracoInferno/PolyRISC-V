@@ -1,5 +1,12 @@
 #include "PolyRISC-V.h"
 
+const char REG_NAMES[32][6] = {
+	"zero", "ra\t", "sp\t", "gp\t", "tp\t", "t0\t", "t1\t", "t2\t",
+	"s0/fp", "s1\t","a0\t", "a1\t", "a2\t", "a3\t", "a4\t", "a5\t",
+	"a6\t", "a7\t", "s2\t", "s3\t", "s4\t", "s5\t", "s6\t", "s7\t",
+	"s8\t", "s9\t", "s10", "s11", "t3\t", "t4\t", "t5\t", "t6\t"
+};
+
 RISCV_st* RISCV_init(RISCV_init_op_st *options)
 {
 	RISCV_st *cpu = NULL;
@@ -401,12 +408,28 @@ void RISCV_step(RISCV_st *cpu)
 
 void RISCV_print_reg(RISCV_st *cpu)
 {
-	printf("Register\tHex\n");
+	assert(cpu);
+
+	printf(" Register\t| Hex\t\t| Dec\n");
+	printf("-------------------------------------------------\n");
 	for(int i=0 ; i<32 ; i++){
-		printf("x%d (name)\t%x\n", i, cpu->reg[i]);
+		printf(" x%02d %s\t| 0x %08x\t| %d\n", i, REG_NAMES[i], cpu->reg[i], cpu->reg[i]);
 	}
 }
 
+void RISCV_print_mem(RISCV_st *cpu, size_t start, size_t size)
+{
+	assert(cpu);
+	assert(cpu->mem_size <= start + size);
+
+	printf("  Offset: 00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F");
+	
+	for(size_t i=start ; i<start+size ; i++){
+		if(!(i % 0xF))
+			printf("\n%08x:", i);
+		printf(" %02x", cpu->mem[i]);
+	}
+}
 
 uint32_t RISCV_fetch_instr(RISCV_st *cpu)
 {
