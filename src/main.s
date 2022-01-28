@@ -1,50 +1,32 @@
-##
-#  MIT License
-#
-#  Copyright (c) 2019 Cesar Fuguet Tortolero
-#
-#  Permission is hereby granted, free of charge, to any person obtaining a copy
-#  of this software and associated documentation files (the "Software"), to deal
-#  in the Software without restriction, including without limitation the rights
-#  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-#  copies of the Software, and to permit persons to whom the Software is
-#  furnished to do so, subject to the following conditions:
-#
-#  The above copyright notice and this permission notice shall be included in all
-#  copies or substantial portions of the Software.
-#
-#  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-#  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-#  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-#  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-#  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-#  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-#  SOFTWARE.
-##
-##
-#  @file   factorial.s
-#  @author Cesar Fuguet Tortolero
-##
-#.set STACK_SIZE, 0x1000
-#.set N, 5
-
-#.section .start,"ax",@progbits
-
-#.globl main
-#.align 3
-
 main:
+	addi a0, zero, 2
+	addi a1, zero, 4
+	jal ra, _mulp
 
-addi a0, zero, 56
-	# loop forever
+
+inf:
+	jal ra, inf
+
+
+# s = a * b
+#	a -> a0
+#	b -> a1
+#	s -> a0
+_mulp:
+	addi sp, sp, -4
+	sw ra, 0(sp)
+
+	addi t0, zero, 0
+	beq a0, zero, 2f
+	beq a1, zero, 2f
+
 1:
-	j        1b
+	add t0, t0, a0
+	addi a1, a1, -1
+	bne a1, zero, 1b
+2:
+	addi a0, t0, 0
 
-
-#.section .rodata
-
-#.align 3
-
-#_result_str:
-#	.asciz   "result: "
-
+	lw ra, 0(sp)
+	addi sp, sp, 4
+	jalr zero, 0(ra)

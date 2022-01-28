@@ -12,7 +12,7 @@ BINDIR= bin
 LIBDIR= lib
 
 WARNINGS= -W -Wall -Wextra -Wpedantic -Wdouble-promotion -Wstrict-prototypes -Wshadow
-CFLAGS= $(WARNINGS) -std=c11 -MMD -MP -march=native
+CFLAGS= $(WARNINGS) -std=c11 -MMD -MP -march=native -O2
 LDFLAGS= #-L ./$(LIBDIR) -Wl,-rpath='$$ORIGIN' #rpath tells where to find .so files to the binaru output
 LIBFLAGS= 
 INCFLAGS= -I ./$(INCDIR)
@@ -56,6 +56,7 @@ elf: $(BINDIR)/$(ELF)
 	@echo "Assembling riscv instructions"
 
 $(BINDIR)/$(ELF): $(SRCDIR)/main.s
+	@mkdir -p ./$(BINDIR)
 	riscv32-elf-as $(ASFLAGS) $^ -o $@
 
 elfdump: $(BINDIR)/$(ELF)
@@ -65,6 +66,7 @@ raw: $(BINDIR)/$(RAW)
 	@echo "Getting raw riscv instructions"
 
 $(BINDIR)/$(RAW): $(BINDIR)/$(ELF)
+	@mkdir -p ./$(BINDIR)
 	riscv32-elf-objcopy -O binary $^ $@
 
 rawdump: $(BINDIR)/$(RAW)

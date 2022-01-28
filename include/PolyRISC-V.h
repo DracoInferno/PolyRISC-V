@@ -9,6 +9,10 @@
 #include <assert.h>
 #include <math.h>
 
+
+#define DEBUG 1
+#define DEBUG_PRINT(fmt, ...) do{if(DEBUG) printf(fmt, __VA_ARGS__);}while(0)
+
 // RV32I
 #define BITS 32
 //#define MEM_SIZE 0xFFFF // no need for more
@@ -141,18 +145,14 @@ typedef struct{
 	bool set_to_0;
 }RISCV_init_op_st;
 
-typedef struct{
-	int foo;
-}RISCV_rst_op_st;
-
-
 RISCV_st* RISCV_init(RISCV_init_op_st *options);
 void RISCV_deinit(RISCV_st *cpu);
-void RISCV_reset(RISCV_st *cpu, uint8_t *elf, size_t elf_size, 
-				RISCV_rst_op_st *options);
+void RISCV_load_raw_program(RISCV_st *cpu, const uint8_t *elf, size_t elf_size);
+void RISCV_reset(RISCV_st *cpu);
 void RISCV_step(RISCV_st *cpu);
 
 void RISCV_print_reg(RISCV_st *cpu);
+void RISCV_print_pc(RISCV_st *cpu);
 void RISCV_print_mem(RISCV_st *cpu, size_t start, size_t size);
 
 uint32_t RISCV_fetch_instr(RISCV_st *cpu);

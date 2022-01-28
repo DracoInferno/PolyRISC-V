@@ -1,6 +1,13 @@
 #include "PolyRISC-V.h"
 
 const char REG_NAMES[32][6] = {
+	"zero", "ra", "sp", "gp", "tp", "t0", "t1", "t2",
+	"s0", "s1","a0", "a1", "a2", "a3", "a4", "a5",
+	"a6", "a7", "s2", "s3", "s4", "s5", "s6", "s7",
+	"s8", "s9", "s10", "s11", "t3", "t4", "t5", "t6"
+};
+
+const char REG_NAMES_TAB[32][6] = {
 	"zero", "ra\t", "sp\t", "gp\t", "tp\t", "t0\t", "t1\t", "t2\t",
 	"s0/fp", "s1\t","a0\t", "a1\t", "a2\t", "a3\t", "a4\t", "a5\t",
 	"a6\t", "a7\t", "s2\t", "s3\t", "s4\t", "s5\t", "s6\t", "s7\t",
@@ -47,15 +54,25 @@ void RISCV_deinit(RISCV_st *cpu)
 	free(cpu);
 }
 
-void RISCV_reset(RISCV_st *cpu, uint8_t *elf, size_t elf_size, 
-				RISCV_rst_op_st *options)
+void RISCV_load_raw_program(RISCV_st *cpu, const uint8_t *elf, size_t elf_size)
 {
 	assert(cpu);
 	assert(elf);
 	assert(elf_size > 0);
 	assert(elf_size < cpu->mem_size);
 
-	(void)options;
+	// Set stack lower boundary
+	cpu->stack_bot = elf_size;
+
+	// Copy program to memory
+	memcpy(cpu->mem, elf, elf_size);
+}
+
+void RISCV_reset(RISCV_st *cpu)
+{
+	assert(cpu);
+
+	DEBUG_PRINT("%s", "Program reset.\n");
 
 	// Set registers to 0
 	memset(cpu->reg, 0, sizeof(cpu->reg));
@@ -63,11 +80,8 @@ void RISCV_reset(RISCV_st *cpu, uint8_t *elf, size_t elf_size,
 	// Set stack pointer register
 	cpu->reg[SP] = cpu->stack_top;
 	
-	// Set stack lower boundary
-	cpu->stack_bot = elf_size;
-
-	// Copy program to memory
-	memcpy(cpu->mem, elf, elf_size);
+	// Set program counter
+	cpu->pc = 0;
 }
 
 void RISCV_step(RISCV_st *cpu)
@@ -78,8 +92,13 @@ void RISCV_step(RISCV_st *cpu)
 	uint8_t funct7 = 0;
 	uint8_t funct12 = 0;
 
+	assert(cpu);
+	assert(cpu->mem);
+
 	// Fetch instruction
 	instr = RISCV_fetch_instr(cpu);
+
+	DEBUG_PRINT("Executing instruction Ox%08x at pc: 0x%08x.\n", instr, cpu->pc);
 
 	// Decode instruction
 	opcode = instr_decode_opcode(instr);
@@ -138,7 +157,7 @@ void RISCV_step(RISCV_st *cpu)
 
 				default:{
 					fprintf(stderr,
-							"Error, bad funct3 code: %x (opcode: %x).\n",
+							"Error, bad funct3 code: 0x%08x (opcode: 0x%08x).\n",
 							funct3, opcode
 							);
 					assert(0 && "Invalid funct3 code!");
@@ -171,7 +190,7 @@ void RISCV_step(RISCV_st *cpu)
 
 				default:{
 					fprintf(stderr,
-							"Error, bad funct3 code: %x (opcode: %x).\n",
+							"Error, bad funct3 code: 0x%08x (opcode: 0x%08x).\n",
 							funct3, opcode
 							);
 					assert(0 && "Invalid funct3 code!");
@@ -196,7 +215,7 @@ void RISCV_step(RISCV_st *cpu)
 
 				default:{
 					fprintf(stderr,
-							"Error, bad funct3 code: %x (opcode: %x).\n",
+							"Error, bad funct3 code: 0x%08x (opcode: 0x%08x).\n",
 							funct3, opcode
 							);
 					assert(0 && "Invalid funct3 code!");
@@ -236,17 +255,15 @@ void RISCV_step(RISCV_st *cpu)
 					switch(funct7){
 						case F7_OP_IMM_SRXI_SRLI:{
 							RISCV_instr_srli(cpu, instr);
-							assert(0 && "SRLI Not implemented");
 						}break;
 
 						case F7_OP_IMM_SRXI_SRAI:{
 							RISCV_instr_srai(cpu, instr);
-							assert(0 && "SRAI Not implemented");
 						}break;
 
 						default:{
 							fprintf(stderr,
-									"Error, bad funct7 code: %x (opcode: %x, funct3: %x).\n",
+									"Error, bad funct7 code: 0x%08x (opcode: 0x%08x, funct3: 0x%08x).\n",
 									funct7, opcode, funct3
 							);
 							assert(0 && "Invalid funct7 code!");
@@ -256,7 +273,7 @@ void RISCV_step(RISCV_st *cpu)
 
 				default:{
 					fprintf(stderr,
-							"Error, bad funct3 code: %x (opcode: %x).\n",
+							"Error, bad funct3 code: 0x%08x (opcode: 0x%08x).\n",
 							funct3, opcode
 							);
 					assert(0 && "Invalid funct3 code!");
@@ -280,7 +297,7 @@ void RISCV_step(RISCV_st *cpu)
 
 						default:{
 							fprintf(stderr,
-									"Error, bad funct7 code: %x (opcode: %x, funct3: %x).\n",
+									"Error, bad funct7 code: 0x%08x (opcode: 0x%08x, funct3: 0x%08x).\n",
 									funct7, opcode, funct3
 							);
 							assert(0 && "Invalid funct7 code!");
@@ -317,7 +334,7 @@ void RISCV_step(RISCV_st *cpu)
 
 						default:{
 							fprintf(stderr,
-									"Error, bad funct7 code: %x (opcode: %x, funct3: %x).\n",
+									"Error, bad funct7 code: 0x%08x (opcode: 0x%08x, funct3: 0x%08x).\n",
 									funct7, opcode, funct3
 							);
 							assert(0 && "Invalid funct7 code!");
@@ -335,7 +352,7 @@ void RISCV_step(RISCV_st *cpu)
 
 				default:{
 					fprintf(stderr,
-							"Error, bad funct3 code: %x (opcode: %x).\n",
+							"Error, bad funct3 code: 0x%08x (opcode: 0x%08x).\n",
 							funct3, opcode
 							);
 					assert(0 && "Invalid funct3 code!");
@@ -353,7 +370,7 @@ void RISCV_step(RISCV_st *cpu)
 
 				default:{
 					fprintf(stderr,
-							"Error, bad funct3 code: %x (opcode: %x).\n",
+							"Error, bad funct3 code: 0x%08x (opcode: 0x%08x).\n",
 							funct3, opcode
 							);
 					assert(0 && "Invalid funct3 code!");
@@ -378,7 +395,7 @@ void RISCV_step(RISCV_st *cpu)
 
 						default:{
 							fprintf(stderr,
-									"Error, bad funct12 code: %x (opcode: %x, funct3: %x).\n",
+									"Error, bad funct12 code: 0x%08x (opcode: 0x%08x, funct3: 0x%08x).\n",
 									funct12, opcode, funct3
 							);
 							assert(0 && "Invalid funct12 code!");
@@ -388,7 +405,7 @@ void RISCV_step(RISCV_st *cpu)
 
 				default:{
 					fprintf(stderr,
-							"Error, bad funct3 code: %x (opcode: %x).\n",
+							"Error, bad funct3 code: 0x%08x (opcode: 0x%08x).\n",
 							funct3, opcode
 							);
 					assert(0 && "Invalid funct3 code!");
@@ -398,7 +415,7 @@ void RISCV_step(RISCV_st *cpu)
 
 		default:{
 			// TODO: cleaner error handling ? 
-			fprintf(stderr, "Error, bad opcode: %x.\n", opcode);
+			fprintf(stderr, "Error, bad opcode: 0x%08x.\n", opcode);
 			assert(0 && "Invalid opcode!");
 		}
 	}
@@ -413,8 +430,15 @@ void RISCV_print_reg(RISCV_st *cpu)
 	printf(" Register\t| Hex\t\t| Dec\n");
 	printf("-------------------------------------------------\n");
 	for(int i=0 ; i<32 ; i++){
-		printf(" x%02d %s\t| 0x %08x\t| %d\n", i, REG_NAMES[i], cpu->reg[i], cpu->reg[i]);
+		printf(" x%02d %s\t| 0x %08x\t| %d\n", i, REG_NAMES_TAB[i], cpu->reg[i], cpu->reg[i]);
 	}
+}
+
+void RISCV_print_pc(RISCV_st *cpu)
+{
+	assert(cpu);
+
+	printf("pc:\t0x %08x\n", cpu->pc);
 }
 
 void RISCV_print_mem(RISCV_st *cpu, size_t start, size_t size)
@@ -426,7 +450,7 @@ void RISCV_print_mem(RISCV_st *cpu, size_t start, size_t size)
 	
 	for(size_t i=start ; i<start+size ; i++){
 		if(!(i % 0xF))
-			printf("\n%08x:", i);
+			printf("\n%08lu:", i);
 		printf(" %02x", cpu->mem[i]);
 	}
 }
@@ -438,7 +462,7 @@ uint32_t RISCV_fetch_instr(RISCV_st *cpu)
 		((uint32_t)cpu->mem[cpu->pc + 1] << 8) |
 		((uint32_t)cpu->mem[cpu->pc + 2] << 16) |
 		((uint32_t)cpu->mem[cpu->pc + 3] << 24);
-	cpu->pc++;
+	cpu->pc += 4;
 
 	return instr;
 }
@@ -533,8 +557,8 @@ int32_t instr_decode_imm_jal(const uint32_t instr)
 	uint32_t imm =
 		((instr >> 11) & 0x100000) |
 	// 1xxx X X X X X X X -> X X xxx1 X X X X X
-		((instr >> 20) & 0x3FE) | 
-	// x111 1111 111x X X X X X -> X X X X X xx11 1111 1110
+		((instr >> 20) & 0x7FE) | 
+	// x111 1111 111x X X X X X -> X X X X X x111 1111 1110
 		((instr >> 9) & 0x800) | 
 	// X X xxx1 X X X X X -> X X X X X 1xxx X X
 		(instr & 0xFF000);
@@ -567,7 +591,7 @@ int16_t instr_decode_imm_branch(const uint32_t instr)
 	// X X X X X X 1xxx X -> X 1xxx X X
 	
 	// Check sign bit (n°12). If 1, set all leftmost bits to 1.
-	return (int16_t)((imm & 0x100000)? (imm | 0xF000) : imm);
+	return (imm & 0x1000)? (imm | 0xF000) : imm;
 }
 
 int16_t instr_decode_imm_store(const uint32_t instr)
@@ -600,88 +624,162 @@ uint8_t instr_decode_imm_shamt(const uint32_t instr)
 // Instructions implementation
 void RISCV_instr_lui(RISCV_st *cpu, uint32_t instr)
 {
+	DEBUG_PRINT("%s", "instr: lui\n");
 	cpu->reg[instr_decode_rd(instr)] = instr_decode_imm_31_12(instr);
 }
 
 void RISCV_instr_auipc(RISCV_st *cpu, uint32_t instr)
 {
+	DEBUG_PRINT("%s", "instr: auipc\n");
 	// TODO: check this not sure, sould it be cpu->pc += imm ?
 	cpu->reg[instr_decode_rd(instr)] = cpu->pc + instr_decode_imm_31_12(instr);
 }
 void RISCV_instr_jal(RISCV_st *cpu, uint32_t instr)
 {
-	cpu->reg[instr_decode_rd(instr)] = cpu->pc + 4;
-	cpu->pc += instr_decode_imm_jal(instr);
+	uint8_t rd = instr_decode_rd(instr);
+	int32_t imm = instr_decode_imm_jal(instr);
+
+	DEBUG_PRINT("instr: jal %s, 0x%08x\n", REG_NAMES[rd], imm);
+
+	// pc has been incremented in fetch_instr(), so pc points to the next instr
+	cpu->reg[rd] = cpu->pc; // store pc+4
+	cpu->pc += imm - 4; // offset pc by imm
 }
 
 void RISCV_instr_jalr(RISCV_st *cpu, uint32_t instr)
 {
-	cpu->reg[instr_decode_rd(instr)] = cpu->pc + 4;
-	cpu->pc = (cpu->reg[instr_decode_rs1(instr)] + instr_decode_imm_11_0(instr)) & ~0x1;
+	uint8_t rd = instr_decode_rd(instr);
+	uint8_t rs1 = instr_decode_rs1(instr);
+	int16_t imm = instr_decode_imm_11_0(instr);
+
+	DEBUG_PRINT("instr: jalr %s, %d(%s)\n", REG_NAMES[rd], imm, REG_NAMES[rs1]);
+
+	// pc has been incremented in fetch_instr(), so pc points to the next instr
+	cpu->reg[rd] = cpu->pc; // store pc+4
+	cpu->pc = (cpu->reg[rs1] + imm) & ~0x1;
 }
 
 void RISCV_instr_beq(RISCV_st *cpu, uint32_t instr)
 {
-	if(instr_decode_rs1(instr) == instr_decode_rs2(instr))
-		cpu->pc += instr_decode_imm_branch(instr);
+	uint8_t rs1 = instr_decode_rs1(instr);
+	uint8_t rs2 = instr_decode_rs2(instr);
+	int16_t imm = instr_decode_imm_branch(instr);
+
+	DEBUG_PRINT("instr: beq %s, %s, 0x%08x\n", REG_NAMES[rs1], REG_NAMES[rs2], imm);
+
+	// pc has been incremented in fetch_instr(), so pc points to the next instr
+	if(cpu->reg[rs1] == cpu->reg[rs2])
+		cpu->pc += imm - 4;// offset pc by imm
 }
 
 void RISCV_instr_bne(RISCV_st *cpu, uint32_t instr)
 {
-	if(instr_decode_rs1(instr) != instr_decode_rs2(instr))
-		cpu->pc += instr_decode_imm_branch(instr);
+	uint8_t rs1 = instr_decode_rs1(instr);
+	uint8_t rs2 = instr_decode_rs2(instr);
+	int16_t imm = instr_decode_imm_branch(instr);
+
+	DEBUG_PRINT("instr: bne %s, %s, 0x%08x\n", REG_NAMES[rs1], REG_NAMES[rs2], imm);
+
+	// pc has been incremented in fetch_instr(), so pc points to the next instr
+	if(cpu->reg[rs1] != cpu->reg[rs2])
+		cpu->pc += imm - 4;// offset pc by imm
 }
 
 void RISCV_instr_blt(RISCV_st *cpu, uint32_t instr)
 {
-	if(instr_decode_rs1(instr) < instr_decode_rs2(instr))
-		cpu->pc += instr_decode_imm_branch(instr);
+	uint8_t rs1 = instr_decode_rs1(instr);
+	uint8_t rs2 = instr_decode_rs2(instr);
+	int16_t imm = instr_decode_imm_branch(instr);
+
+	DEBUG_PRINT("instr: blt %s, %s, 0x%08x\n", REG_NAMES[rs1], REG_NAMES[rs2], imm);
+
+	// pc has been incremented in fetch_instr(), so pc points to the next instr
+	if(cpu->reg[rs1] < cpu->reg[rs2])
+		cpu->pc += imm - 4;// offset pc by imm
 }
 
 void RISCV_instr_bge(RISCV_st *cpu, uint32_t instr)
 {
-	if(instr_decode_rs1(instr) >= instr_decode_rs2(instr))
-		cpu->pc += instr_decode_imm_branch(instr);
+	uint8_t rs1 = instr_decode_rs1(instr);
+	uint8_t rs2 = instr_decode_rs2(instr);
+	int16_t imm = instr_decode_imm_branch(instr);
+
+	DEBUG_PRINT("instr: bge %s, %s, 0x%08x\n", REG_NAMES[rs1], REG_NAMES[rs2], imm);
+
+	// pc has been incremented in fetch_instr(), so pc points to the next instr
+	if(cpu->reg[rs1] >= cpu->reg[rs2])
+		cpu->pc += imm - 4;// offset pc by imm
 }
 
 void RISCV_instr_bltu(RISCV_st *cpu, uint32_t instr)
 {
-	if((uint32_t)instr_decode_rs1(instr) < (uint32_t)instr_decode_rs2(instr))
-		cpu->pc += instr_decode_imm_branch(instr);
+	uint8_t rs1 = instr_decode_rs1(instr);
+	uint8_t rs2 = instr_decode_rs2(instr);
+	int16_t imm = instr_decode_imm_branch(instr);
+
+	DEBUG_PRINT("instr: bltu %s, %s, 0x%08x\n", REG_NAMES[rs1], REG_NAMES[rs2], imm);
+
+	// pc has been incremented in fetch_instr(), so pc points to the next instr
+	if((uint32_t)cpu->reg[rs1] < (uint32_t)cpu->reg[rs2])
+		cpu->pc += imm - 4;// offset pc by imm
 }
 
 void RISCV_instr_bgeu(RISCV_st *cpu, uint32_t instr)
 {
-	if((uint32_t)instr_decode_rs1(instr) >= (uint32_t)instr_decode_rs2(instr))
-		cpu->pc += instr_decode_imm_branch(instr);
+	uint8_t rs1 = instr_decode_rs1(instr);
+	uint8_t rs2 = instr_decode_rs2(instr);
+	int16_t imm = instr_decode_imm_branch(instr);
+
+	DEBUG_PRINT("instr: bgeu %s, %s, 0x%08x\n", REG_NAMES[rs1], REG_NAMES[rs2], imm);
+
+	// pc has been incremented in fetch_instr(), so pc points to the next instr
+	if((uint32_t)cpu->reg[rs1] >= (uint32_t)cpu->reg[rs2])
+		cpu->pc += imm - 4;// offset pc by imm
 }
 
 void RISCV_instr_lb(RISCV_st *cpu, uint32_t instr)
 {
+	uint8_t rd = instr_decode_rd(instr);
+	uint8_t rs1 = instr_decode_rs1(instr);
+	int16_t imm = instr_decode_imm_11_0(instr);
+	
+	DEBUG_PRINT("instr: lb %s, %d(%s)\n", REG_NAMES[rd], imm, REG_NAMES[rs1]);
+
 	// TODO: exception if rd is zero register
 	// TODO: check addr > 0 ?
 	// uint32_t value = (uint32_t)cpu->mem[instr_decode_rs1(instr) + instr_decode_imm_11_0(instr)];
 	// Check sign bit (n°7). If 1, set all leftmost bits to 1.
 	// cpu->reg[instr_decode_rd(instr)] = ((value & 0x80)? (value | 0xFFFFFF80) : value); 
-	cpu->reg[instr_decode_rd(instr)] =
-		(int8_t)cpu->mem[cpu->reg[instr_decode_rs1(instr)] + instr_decode_imm_11_0(instr)];
+	cpu->reg[rd] = (int8_t) cpu->mem[cpu->reg[rs1] + imm];
 }
 
 void RISCV_instr_lh(RISCV_st *cpu, uint32_t instr)
 {
+	uint8_t rd = instr_decode_rd(instr);
+	uint8_t rs1 = instr_decode_rs1(instr);
+	int16_t imm = instr_decode_imm_11_0(instr);
+	int32_t addr = cpu->reg[rs1] + imm;
+
+	DEBUG_PRINT("instr: lh %s, %d(%s)\n", REG_NAMES[rd], imm, REG_NAMES[rs1]);
+
 	// TODO: exception if rd is zero register
 	// TODO: check addr > 0 ?
-	int32_t addr = cpu->reg[instr_decode_rs1(instr)] + instr_decode_imm_11_0(instr);
-	cpu->reg[instr_decode_rd(instr)] = 
-		(int16_t)((uint16_t)cpu->mem[addr] | ((uint16_t)cpu->mem[addr + 1] << 8));
+	cpu->reg[rd] = (int16_t)
+		((uint16_t)cpu->mem[addr] | ((uint16_t)cpu->mem[addr + 1] << 8));
 }
 
 void RISCV_instr_lw(RISCV_st *cpu, uint32_t instr)
 {
+	uint8_t rd = instr_decode_rd(instr);
+	uint8_t rs1 = instr_decode_rs1(instr);
+	int16_t imm = instr_decode_imm_11_0(instr);
+	int32_t addr = cpu->reg[rs1] + imm;
+	
+	DEBUG_PRINT("instr: lw %s, %d(%s)\n", REG_NAMES[rd], imm, REG_NAMES[rs1]);
+
 	// TODO: exception if rd is zero register
 	// TODO: check addr > 0 ?
-	int32_t addr = cpu->reg[instr_decode_rs1(instr)] + instr_decode_imm_11_0(instr);
-	cpu->reg[instr_decode_rd(instr)] = 
+	cpu->reg[rd] = 
 		(uint32_t)cpu->mem[addr] | 
 		((uint32_t)cpu->mem[addr + 1] << 8) |
 		((uint32_t)cpu->mem[addr + 2] << 16) |
@@ -690,159 +788,306 @@ void RISCV_instr_lw(RISCV_st *cpu, uint32_t instr)
 
 void RISCV_instr_lbu(RISCV_st *cpu, uint32_t instr)
 {
+	uint8_t rd = instr_decode_rd(instr);
+	uint8_t rs1 = instr_decode_rs1(instr);
+	int16_t imm = instr_decode_imm_11_0(instr);
+	
+	DEBUG_PRINT("instr: lbu %s, %d(%s)\n", REG_NAMES[rd], imm, REG_NAMES[rs1]);
+
 	// TODO: exception if rd is zero register
 	// TODO: check addr > 0 ?
-	cpu->reg[instr_decode_rd(instr)] = 
-		cpu->mem[cpu->reg[instr_decode_rs1(instr)] + instr_decode_imm_11_0(instr)];
+	cpu->reg[rd] = cpu->mem[cpu->reg[rs1] + imm];
 }
 
 void RISCV_instr_lhu(RISCV_st *cpu, uint32_t instr)
 {
+	uint8_t rd = instr_decode_rd(instr);
+	uint8_t rs1 = instr_decode_rs1(instr);
+	int16_t imm = instr_decode_imm_11_0(instr);
+	int32_t addr = cpu->reg[rs1] + imm;
+	
+	DEBUG_PRINT("instr: lhu %s, %d(%s)\n", REG_NAMES[rd], imm, REG_NAMES[rs1]);
+
 	// TODO: exception if rd is zero register
 	// TODO: check addr > 0 ?
-	int32_t addr = cpu->reg[instr_decode_rs1(instr)] + instr_decode_imm_11_0(instr);
-	cpu->reg[instr_decode_rd(instr)] = 
+	cpu->reg[rd] = 
 		((uint16_t)cpu->mem[addr] | ((uint16_t)cpu->mem[addr + 1] << 8));
 }
 
 void RISCV_instr_sb(RISCV_st *cpu, uint32_t instr)
 {
+	uint8_t rs1 = instr_decode_rs1(instr);
+	uint8_t rs2 = instr_decode_rs2(instr);
+	int16_t imm = instr_decode_imm_store(instr);
+
+	DEBUG_PRINT("instr: sb %s, %d(%s)\n", REG_NAMES[rs1], imm, REG_NAMES[rs2]);
+
 	// TODO: check addr > 0 ?
-	cpu->mem[cpu->reg[instr_decode_rs1(instr)] + instr_decode_imm_store(instr)] = cpu->reg[instr_decode_rs2(instr)];
+	cpu->mem[cpu->reg[rs1] + imm] = cpu->reg[rs2];
 }
 
 void RISCV_instr_sh(RISCV_st *cpu, uint32_t instr)
 {
+	uint8_t rs1 = instr_decode_rs1(instr);
+	uint8_t rs2 = instr_decode_rs2(instr);
+	int16_t imm = instr_decode_imm_store(instr);
+	int32_t addr = cpu->reg[rs1] + imm;
+
+	DEBUG_PRINT("instr: sh %s, %d(%s)\n", REG_NAMES[rs1], imm, REG_NAMES[rs2]);
+
 	// TODO: check addr > 0 ?
-	int32_t addr = cpu->reg[instr_decode_rs1(instr)] + instr_decode_imm_store(instr);
-	uint16_t value = cpu->reg[instr_decode_rs2(instr)];
-	cpu->mem[addr] = value;
-	cpu->mem[addr + 1] = value >> 8;
+	cpu->mem[addr] = cpu->reg[rs2];
+	cpu->mem[addr + 1] = cpu->reg[rs2] >> 8;
 }
 
 void RISCV_instr_sw(RISCV_st *cpu, uint32_t instr)
 {
+	uint8_t rs1 = instr_decode_rs1(instr);
+	uint8_t rs2 = instr_decode_rs2(instr);
+	int16_t imm = instr_decode_imm_store(instr);
+	int32_t addr = cpu->reg[rs1] + imm;
+
+	DEBUG_PRINT("instr: sw %s, %d(%s)\n", REG_NAMES[rs1], imm, REG_NAMES[rs2]);
+
 	// TODO: check addr > 0 ?
-	int32_t addr = cpu->reg[instr_decode_rs1(instr)] + instr_decode_imm_store(instr);
-	uint32_t value = cpu->reg[instr_decode_rs2(instr)];
-	cpu->mem[addr] = value;
-	cpu->mem[addr + 1] = value >> 8;
-	cpu->mem[addr + 2] = value >> 16;
-	cpu->mem[addr + 3] = value >> 24;
+	cpu->mem[addr] = cpu->reg[rs2];
+	cpu->mem[addr + 1] = cpu->reg[rs2] >> 8;
+	cpu->mem[addr + 2] = cpu->reg[rs2] >> 16;
+	cpu->mem[addr + 3] = cpu->reg[rs2] >> 24;
 }
 
 void RISCV_instr_addi(RISCV_st *cpu, uint32_t instr)
 {
-	cpu->reg[instr_decode_rd(instr)] = cpu->reg[instr_decode_rs1(instr)] + instr_decode_imm_11_0(instr);
+	uint8_t rd = instr_decode_rd(instr);
+	uint8_t rs1 = instr_decode_rs1(instr);
+	int16_t imm = instr_decode_imm_11_0(instr);
+
+	DEBUG_PRINT("instr: addi %s, %s, %d\n", REG_NAMES[rd], REG_NAMES[rs1], imm);
+
+	cpu->reg[rd] = cpu->reg[rs1] + imm;
 }
 
 void RISCV_instr_slti(RISCV_st *cpu, uint32_t instr)
 {
-	cpu->reg[instr_decode_rd(instr)] = cpu->reg[instr_decode_rs1(instr)] < instr_decode_imm_11_0(instr);
+	uint8_t rd = instr_decode_rd(instr);
+	uint8_t rs1 = instr_decode_rs1(instr);
+	int16_t imm = instr_decode_imm_11_0(instr);
+
+	DEBUG_PRINT("instr: slti %s, %s, %d\n", REG_NAMES[rd], REG_NAMES[rs1], imm);
+
+	cpu->reg[rd] = cpu->reg[rs1] < imm;
 }
 
 void RISCV_instr_sltiu(RISCV_st *cpu, uint32_t instr)
 {
-	cpu->reg[instr_decode_rd(instr)] = cpu->reg[instr_decode_rs1(instr)] < instr_decode_imm_11_0_u(instr);
+	uint8_t rd = instr_decode_rd(instr);
+	uint8_t rs1 = instr_decode_rs1(instr);
+	uint16_t imm = instr_decode_imm_11_0_u(instr);
+
+	DEBUG_PRINT("instr: addi %s, %s, %d\n", REG_NAMES[rd], REG_NAMES[rs1], imm);
+
+	cpu->reg[rd] = cpu->reg[rs1] < imm;
 }
 
 void RISCV_instr_xori(RISCV_st *cpu, uint32_t instr)
 {
+	uint8_t rd = instr_decode_rd(instr);
+	uint8_t rs1 = instr_decode_rs1(instr);
+	int16_t imm = instr_decode_imm_11_0(instr);
+
+	DEBUG_PRINT("instr: xori %s, %s, %d\n", REG_NAMES[rd], REG_NAMES[rs1], imm);
+
 	// TODO: check this
-	cpu->reg[instr_decode_rd(instr)] = cpu->reg[instr_decode_rs1(instr)] ^ instr_decode_imm_11_0(instr);
+	cpu->reg[rd] = cpu->reg[rs1] ^ imm;
 }
 
 void RISCV_instr_ori(RISCV_st *cpu, uint32_t instr)
 {
+	uint8_t rd = instr_decode_rd(instr);
+	uint8_t rs1 = instr_decode_rs1(instr);
+	int16_t imm = instr_decode_imm_11_0(instr);
+
+	DEBUG_PRINT("instr: ori %s, %s, %d\n", REG_NAMES[rd], REG_NAMES[rs1], imm);
+
 	// TODO: check this
-	cpu->reg[instr_decode_rd(instr)] = cpu->reg[instr_decode_rs1(instr)] | instr_decode_imm_11_0(instr);
+	cpu->reg[rd] = cpu->reg[rs1] | imm;
 }
 
 void RISCV_instr_andi(RISCV_st *cpu, uint32_t instr)
 {
+	uint8_t rd = instr_decode_rd(instr);
+	uint8_t rs1 = instr_decode_rs1(instr);
+	int16_t imm = instr_decode_imm_11_0(instr);
+
+	DEBUG_PRINT("instr: andi %s, %s, %d\n", REG_NAMES[rd], REG_NAMES[rs1], imm);
+
 	// TODO: check this
-	cpu->reg[instr_decode_rd(instr)] = cpu->reg[instr_decode_rs1(instr)] & instr_decode_imm_11_0(instr);
+	cpu->reg[rd] = cpu->reg[rs1] & imm;
 }
 
 void RISCV_instr_slli(RISCV_st *cpu, uint32_t instr)
 {
+	uint8_t rd = instr_decode_rd(instr);
+	uint8_t rs1 = instr_decode_rs1(instr);
+	uint8_t shamt = instr_decode_imm_shamt(instr);
+
+	DEBUG_PRINT("instr: slli %s, %s, %d\n", REG_NAMES[rd], REG_NAMES[rs1], shamt);
+
 	// TODO: check this
-	cpu->reg[instr_decode_rd(instr)] = (uint32_t)cpu->reg[instr_decode_rs1(instr)] << instr_decode_imm_shamt(instr);
+	cpu->reg[rd] = (uint32_t)cpu->reg[rs1] << shamt;
 }
 
 void RISCV_instr_srli(RISCV_st *cpu, uint32_t instr)
 {
+	uint8_t rd = instr_decode_rd(instr);
+	uint8_t rs1 = instr_decode_rs1(instr);
+	uint8_t shamt = instr_decode_imm_shamt(instr);
+
+	DEBUG_PRINT("instr: srli %s, %s, %d\n", REG_NAMES[rd], REG_NAMES[rs1], shamt);
+
 	// TODO: check this
-	cpu->reg[instr_decode_rd(instr)] = (uint32_t)cpu->reg[instr_decode_rs1(instr)] >> instr_decode_imm_shamt(instr);
+	cpu->reg[rd] = (uint32_t)cpu->reg[rs1] >> shamt;
 }
 
 void RISCV_instr_srai(RISCV_st *cpu, uint32_t instr)
 {
+	uint8_t rd = instr_decode_rd(instr);
+	uint8_t rs1 = instr_decode_rs1(instr);
+	uint8_t shamt = instr_decode_imm_shamt(instr);
+	int32_t vrs1 = cpu->reg[rs1];
+
+	DEBUG_PRINT("instr: srai %s, %s, %d\n", REG_NAMES[rd], REG_NAMES[rs1], shamt);
+
 	// TODO: check this
-	int32_t vrs1 = cpu->reg[instr_decode_rs1(instr)];
-	uint32_t shamt = instr_decode_rs2(instr); // 5 last bits
-	cpu->reg[instr_decode_rd(instr)] = (vrs1 < 0)? ~(~vrs1 >> shamt) : vrs1 >> shamt;
+	cpu->reg[rd] = (vrs1 < 0)? ~(~vrs1 >> shamt) : vrs1 >> shamt;
 }
 
 void RISCV_instr_add(RISCV_st *cpu, uint32_t instr)
 {
-	cpu->reg[instr_decode_rd(instr)] = cpu->reg[instr_decode_rs1(instr)] + cpu->reg[instr_decode_rs2(instr)];
+	uint8_t rd = instr_decode_rd(instr);
+	uint8_t rs1 = instr_decode_rs1(instr);
+	uint8_t rs2 = instr_decode_rs2(instr);
+
+	DEBUG_PRINT("instr: add %s, %s, %s\n", REG_NAMES[rd], REG_NAMES[rs1], REG_NAMES[rs2]);
+
+	cpu->reg[rd] = cpu->reg[rs1] + cpu->reg[rs2];
 }
 
 void RISCV_instr_sub(RISCV_st *cpu, uint32_t instr)
 {
-	cpu->reg[instr_decode_rd(instr)] = cpu->reg[instr_decode_rs1(instr)] - cpu->reg[instr_decode_rs2(instr)];
+	uint8_t rd = instr_decode_rd(instr);
+	uint8_t rs1 = instr_decode_rs1(instr);
+	uint8_t rs2 = instr_decode_rs2(instr);
+
+	DEBUG_PRINT("instr: sub %s, %s, %s\n", REG_NAMES[rd], REG_NAMES[rs1], REG_NAMES[rs2]);
+
+	cpu->reg[rd] = cpu->reg[rs1] - cpu->reg[rs2];
 }
 
 void RISCV_instr_sll(RISCV_st *cpu, uint32_t instr)
 {
-	cpu->reg[instr_decode_rd(instr)] =
-		(uint32_t)cpu->reg[instr_decode_rs1(instr)] <<
-		(uint32_t)(cpu->reg[instr_decode_rs2(instr)] & 0x1F); // 5 last bits
+	uint8_t rd = instr_decode_rd(instr);
+	uint8_t rs1 = instr_decode_rs1(instr);
+	uint8_t rs2 = instr_decode_rs2(instr);
+
+	DEBUG_PRINT("instr: sll %s, %s, %s\n", REG_NAMES[rd], REG_NAMES[rs1], REG_NAMES[rs2]);
+
+	cpu->reg[rd] =
+		(uint32_t)cpu->reg[rs1] << (uint8_t)(cpu->reg[rs2] & 0x1F); // 5 last bits
 }
 
 void RISCV_instr_slt(RISCV_st *cpu, uint32_t instr)
 {
-	cpu->reg[instr_decode_rd(instr)] = cpu->reg[instr_decode_rs1(instr)] < cpu->reg[instr_decode_rs2(instr)];
+	uint8_t rd = instr_decode_rd(instr);
+	uint8_t rs1 = instr_decode_rs1(instr);
+	uint8_t rs2 = instr_decode_rs2(instr);
+
+	DEBUG_PRINT("instr: slt %s, %s, %s\n", REG_NAMES[rd], REG_NAMES[rs1], REG_NAMES[rs2]);
+
+	cpu->reg[rd] = cpu->reg[rs1] < cpu->reg[rs2];
 }
 
 void RISCV_instr_sltu(RISCV_st *cpu, uint32_t instr)
 {
-	cpu->reg[instr_decode_rd(instr)] =
-		(uint32_t)cpu->reg[instr_decode_rs1(instr)] <
-		(uint32_t)cpu->reg[instr_decode_rs2(instr)];
+	uint8_t rd = instr_decode_rd(instr);
+	uint8_t rs1 = instr_decode_rs1(instr);
+	uint8_t rs2 = instr_decode_rs2(instr);
+
+	DEBUG_PRINT("instr: sltu %s, %s, %s\n", REG_NAMES[rd], REG_NAMES[rs1], REG_NAMES[rs2]);
+
+	cpu->reg[rd] = (uint32_t)cpu->reg[rs1] < (uint32_t)cpu->reg[rs2];
 }
 void RISCV_instr_xor(RISCV_st *cpu, uint32_t instr)
 {
-	cpu->reg[instr_decode_rd(instr)] = cpu->reg[instr_decode_rs1(instr)] ^ cpu->reg[instr_decode_rs2(instr)];
+	uint8_t rd = instr_decode_rd(instr);
+	uint8_t rs1 = instr_decode_rs1(instr);
+	uint8_t rs2 = instr_decode_rs2(instr);
+
+	DEBUG_PRINT("instr: xor %s, %s, %s\n", REG_NAMES[rd], REG_NAMES[rs1], REG_NAMES[rs2]);
+
+	cpu->reg[rd] = cpu->reg[rs1] ^ cpu->reg[rs2];
 }
 
 void RISCV_instr_srl(RISCV_st *cpu, uint32_t instr)
 {
-	cpu->reg[instr_decode_rd(instr)] =
-		(uint32_t)cpu->reg[instr_decode_rs1(instr)] >> 
-		(uint32_t)(cpu->reg[instr_decode_rs2(instr)] & 0x1F); // 5 last bits
+	uint8_t rd = instr_decode_rd(instr);
+	uint8_t rs1 = instr_decode_rs1(instr);
+	uint8_t rs2 = instr_decode_rs2(instr);
+
+	DEBUG_PRINT("instr: srl %s, %s, %s\n", REG_NAMES[rd], REG_NAMES[rs1], REG_NAMES[rs2]);
+
+	cpu->reg[rd] =
+		(uint32_t)cpu->reg[rs1] >> 
+		(uint8_t)(cpu->reg[rs2] & 0x1F); // 5 last bits
 }
 
 void RISCV_instr_sra(RISCV_st *cpu, uint32_t instr)
 {
 	uint8_t rd = instr_decode_rd(instr);
-	int32_t vrs1 = cpu->reg[instr_decode_rs1(instr)];
-	uint32_t vrs2 = cpu->reg[instr_decode_rs2(instr)] & 0x1F; // 5 last bits
+	uint8_t rs1 = instr_decode_rs1(instr);
+	uint8_t rs2 = instr_decode_rs2(instr);
+	int32_t vrs1 = cpu->reg[rs1];
+	uint8_t vrs2 = cpu->reg[rs2] & 0x1F; // 5 last bits
+
+	DEBUG_PRINT("instr: add %s, %s, %s\n", REG_NAMES[rd], REG_NAMES[rs1], REG_NAMES[rs2]);
 
 	cpu->reg[rd] = (vrs1 < 0)? ~(~vrs1 >> vrs2) : vrs1 >> vrs2;
 }
 
 void RISCV_instr_or(RISCV_st *cpu, uint32_t instr)
 {
-	cpu->reg[instr_decode_rd(instr)] = cpu->reg[instr_decode_rs1(instr)] | cpu->reg[instr_decode_rs2(instr)];
+	uint8_t rd = instr_decode_rd(instr);
+	uint8_t rs1 = instr_decode_rs1(instr);
+	uint8_t rs2 = instr_decode_rs2(instr);
+
+	DEBUG_PRINT("instr: or %s, %s, %s\n", REG_NAMES[rd], REG_NAMES[rs1], REG_NAMES[rs2]);
+
+	cpu->reg[rd] = cpu->reg[rs1] | cpu->reg[rs2];
 }
 
 void RISCV_instr_and(RISCV_st *cpu, uint32_t instr)
 {
-	cpu->reg[instr_decode_rd(instr)] = cpu->reg[instr_decode_rs1(instr)] & cpu->reg[instr_decode_rs2(instr)];
+	uint8_t rd = instr_decode_rd(instr);
+	uint8_t rs1 = instr_decode_rs1(instr);
+	uint8_t rs2 = instr_decode_rs2(instr);
+
+	DEBUG_PRINT("instr: and %s, %s, %s\n", REG_NAMES[rd], REG_NAMES[rs1], REG_NAMES[rs2]);
+
+	cpu->reg[rd] = cpu->reg[rs1] & cpu->reg[rs2];
 }
 
-void RISCV_instr_fence(RISCV_st *cpu, uint32_t instr);
-void RISCV_instr_ecall(RISCV_st *cpu, uint32_t instr);
-void RISCV_instr_ebreak(RISCV_st *cpu, uint32_t instr);
+void RISCV_instr_fence(RISCV_st *cpu, uint32_t instr)
+{
+	// TODO
+	do{}while(0);
+}
+void RISCV_instr_ecall(RISCV_st *cpu, uint32_t instr)
+{
+	// TODO
+	do{}while(0);
+}
+void RISCV_instr_ebreak(RISCV_st *cpu, uint32_t instr)
+{
+	// TODO
+	do{}while(0);
+}
