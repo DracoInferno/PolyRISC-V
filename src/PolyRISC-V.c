@@ -441,18 +441,33 @@ void RISCV_print_pc(RISCV_st *cpu)
 	printf("pc:\t0x %08x\n", cpu->pc);
 }
 
-void RISCV_print_mem(RISCV_st *cpu, size_t start, size_t size)
+void RISCV_print_mem(RISCV_st *cpu, uint32_t from, uint32_t to)
 {
+	//DEBUG_PRINT("Start: %d (%08x), Stop: %d (%08x)\n", start, start, size, size);
 	assert(cpu);
-	assert(cpu->mem_size <= start + size);
+	uint32_t size = abs((int32_t)( (int64_t)to - (int64_t)from) );
+	assert(cpu->mem_size >= size);
+	// Set "from" value to the lowest value between those two
+	if(from > to)
+		from = to;
+
+	// TODO: change "start", "size" to "from", "to" ? 
 
 	printf("  Offset: 00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F");
-	
-	for(size_t i=start ; i<start+size ; i++){
-		if(!(i % 0xF))
-			printf("\n%08lu:", i);
+
+	// Add "xx" padding chars to start at 00 ofset
+	for(uint32_t i=from-(from % 0x10) ; i<from ; i++){
+		if(!(i % 0x10))
+			printf("\n%08x:", i);
+		printf(" xx");
+	}
+
+	for(uint32_t i=from ; i<from+size ; i++){
+		if(!(i % 0x10))
+			printf("\n%08x:", i);
 		printf(" %02x", cpu->mem[i]);
 	}
+	printf("\n");
 }
 
 uint32_t RISCV_fetch_instr(RISCV_st *cpu)
@@ -823,7 +838,7 @@ void RISCV_instr_sb(RISCV_st *cpu, uint32_t instr)
 	DEBUG_PRINT("instr: sb %s, %d(%s)\n", REG_NAMES[rs1], imm, REG_NAMES[rs2]);
 
 	// TODO: check addr > 0 ?
-	cpu->mem[cpu->reg[rs1] + imm] = cpu->reg[rs2];
+	cpu->mem[cpu->reg[rs1] + imm] = cpu->reg[rs2] & 0xFF;
 }
 
 void RISCV_instr_sh(RISCV_st *cpu, uint32_t instr)
@@ -836,8 +851,8 @@ void RISCV_instr_sh(RISCV_st *cpu, uint32_t instr)
 	DEBUG_PRINT("instr: sh %s, %d(%s)\n", REG_NAMES[rs1], imm, REG_NAMES[rs2]);
 
 	// TODO: check addr > 0 ?
-	cpu->mem[addr] = cpu->reg[rs2];
-	cpu->mem[addr + 1] = cpu->reg[rs2] >> 8;
+	cpu->mem[addr] = cpu->reg[rs2] & 0xFF;
+	cpu->mem[addr + 1] = (cpu->reg[rs2] >> 8) & 0xFF;
 }
 
 void RISCV_instr_sw(RISCV_st *cpu, uint32_t instr)
@@ -850,10 +865,10 @@ void RISCV_instr_sw(RISCV_st *cpu, uint32_t instr)
 	DEBUG_PRINT("instr: sw %s, %d(%s)\n", REG_NAMES[rs1], imm, REG_NAMES[rs2]);
 
 	// TODO: check addr > 0 ?
-	cpu->mem[addr] = cpu->reg[rs2];
-	cpu->mem[addr + 1] = cpu->reg[rs2] >> 8;
-	cpu->mem[addr + 2] = cpu->reg[rs2] >> 16;
-	cpu->mem[addr + 3] = cpu->reg[rs2] >> 24;
+	cpu->mem[addr] = cpu->reg[rs2] & 0xFF;
+	cpu->mem[addr + 1] = (cpu->reg[rs2] >> 8) & 0xFF;
+	cpu->mem[addr + 2] = (cpu->reg[rs2] >> 16) & 0xFF;
+	cpu->mem[addr + 3] = (cpu->reg[rs2] >> 24) & 0xFF;
 }
 
 void RISCV_instr_addi(RISCV_st *cpu, uint32_t instr)

@@ -79,13 +79,14 @@ deinit:
 void interactive_run(RISCV_st *cpu)
 {
 	char cmd = 0;
+	uint32_t from = 0, to = 0;
 	// char buffer[INPUT_BUFFER_SIZE] = {0};
 
 	assert(cpu);
 
 	while(cmd != 'q'){
 		if(cmd != '\n')
-			printf("cmd: (r, s, q, p)? ");
+			printf("cmd: (r[estet], s[tep], q[uit], p[rint reg], m[em] from to)? ");
 		scanf("%c", &cmd);
 		switch(cmd){
 			case 'r':{
@@ -98,12 +99,16 @@ void interactive_run(RISCV_st *cpu)
 				RISCV_print_reg(cpu);
 				RISCV_print_pc(cpu);
 			 }break;
+			case 'm':{
+				scanf("%x", &from);
+				scanf("%x", &to);
+				RISCV_print_mem(cpu, from, to);
+			 }break;
 			case 'q':{
 				// Do nothing, just stop the loop
 			 }break;
 			default:
-				;
-				// Do nothing
+				;// Do nothing
 		}
 	}
 
